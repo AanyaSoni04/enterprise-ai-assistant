@@ -8,15 +8,27 @@ export default function ChatBox({ documentText = "" }) {
   // documentText comes from the uploaded PDF and is passed in by the parent.
   // aiResponse stores the answer returned by the API.
   // summary stores the generated document summary.
+  // actionItems stores the task/deadline/responsibility text returned by Gemini.
   // isLoading controls the Ask AI spinner while waiting for a question answer.
   // isSummaryLoading controls the Generate Summary spinner separately.
+  // isActionItemsLoading controls the Extract Action Items spinner separately.
   // errorMessage stores friendly feedback if the request fails.
   const [question, setQuestion] = useState("");
   const [aiResponse, setAiResponse] = useState("");
   const [summary, setSummary] = useState("");
+  const [actionItems, setActionItems] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSummaryLoading, setIsSummaryLoading] = useState(false);
+  const [isActionItemsLoading, setIsActionItemsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+
+  // Rendering helper:
+  // Gemini returns action items as text. This helper turns that text into a
+  // simple array so React can render each item as its own enterprise-style card.
+  const actionItemCards = actionItems
+    .split("\n")
+    .map((item) => item.replace(/^[-*]\s*/, "").trim())
+    .filter(Boolean);
 
   // Event handling:
   // This function runs when the user submits the form by clicking Ask or
@@ -130,6 +142,53 @@ export default function ChatBox({ documentText = "" }) {
     }
   };
 
+  // Button click flow:
+  // This handler runs when the user clicks "Extract Action Items". It sends the
+  // extracted PDF text to the backend and asks Gemini to find tasks, deadlines,
+  // and responsibilities.
+  const handleExtractActionItems = async () => {
+    if (!documentText.trim()) {
+      setErrorMessage("Please upload a PDF before extracting action items.");
+      setActionItems("");
+      return;
+    }
+
+    // React state updates:
+    // Clear old results, clear old errors, and show a dedicated loading spinner
+    // for this action-item workflow.
+    setIsActionItemsLoading(true);
+    setErrorMessage("");
+    setActionItems("");
+
+    try {
+      // API request:
+      // We send JSON because the PDF was already converted into text by the
+      // upload route. The action-items route then calls Gemini on the server.
+      const response = await fetch("/api/action-items", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ documentText }),
+      });
+
+      // Async flow:
+      // await waits for the backend response, then waits again while the JSON
+      // body is parsed into a normal JavaScript object.
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Action items could not be extracted.");
+      }
+
+      setActionItems(data.actionItems || "No action items were returned.");
+    } catch (error) {
+      setErrorMessage(error.message);
+    } finally {
+      setIsActionItemsLoading(false);
+    }
+  };
+
   return (
     <section className="w-full rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
       {/* Header rendering:
@@ -179,7 +238,7 @@ export default function ChatBox({ documentText = "" }) {
           <div className="flex flex-col gap-2 sm:flex-row">
             <button
               className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-4 text-sm font-medium text-slate-900 transition-colors hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70"
-              disabled={isSummaryLoading || isLoading}
+              disabled={isSummaryLoading || isLoading || isActionItemsLoading}
               onClick={handleGenerateSummary}
               type="button"
             >
@@ -190,8 +249,20 @@ export default function ChatBox({ documentText = "" }) {
             </button>
 
             <button
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-4 text-sm font-medium text-slate-900 transition-colors hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70"
+              disabled={isActionItemsLoading || isLoading || isSummaryLoading}
+              onClick={handleExtractActionItems}
+              type="button"
+            >
+              {isActionItemsLoading && (
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-slate-900" />
+              )}
+              {isActionItemsLoading ? "Extracting" : "Extract Actions"}
+            </button>
+
+            <button
               className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-slate-950 px-4 text-sm font-medium text-white transition-colors hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70"
-              disabled={isLoading || isSummaryLoading}
+              disabled={isLoading || isSummaryLoading || isActionItemsLoading}
               type="submit"
             >
               {isLoading && (
@@ -224,6 +295,43 @@ export default function ChatBox({ documentText = "" }) {
           <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-700">
             {summary}
           </p>
+        </div>
+      )}
+
+      {/* Action item rendering:
+          Each extracted task line becomes a separate card. This makes deadlines
+          and responsibilities easier to scan in an enterprise dashboard. */}
+      {actionItemCards.length > 0 && (
+        <div className="mt-5 rounded-lg border border-amber-200 bg-amber-50 p-4">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-amber-950">
+                Action items
+              </p>
+              <p className="text-xs text-amber-700">
+                Tasks, deadlines, and responsibilities found by Gemini
+              </p>
+            </div>
+            <span className="mt-2 inline-flex w-fit rounded-full bg-white px-2.5 py-1 text-xs font-medium text-amber-700 ring-1 ring-inset ring-amber-200 sm:mt-0">
+              Extracted
+            </span>
+          </div>
+
+          <div className="mt-4 grid gap-3">
+            {actionItemCards.map((item, index) => (
+              <article
+                className="rounded-md border border-amber-200 bg-white p-4 shadow-sm"
+                key={`${item}-${index}`}
+              >
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-amber-700">
+                  Action {index + 1}
+                </p>
+                <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">
+                  {item}
+                </p>
+              </article>
+            ))}
+          </div>
         </div>
       )}
 
