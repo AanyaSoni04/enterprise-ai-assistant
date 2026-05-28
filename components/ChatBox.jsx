@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 
-export default function ChatBox() {
+export default function ChatBox({ documentText = "" }) {
   // React state:
   // question stores what the user types.
+  // documentText comes from the uploaded PDF and is passed in by the parent.
   // aiResponse stores the answer returned by the API.
   // isLoading controls the spinner and disables the button while waiting.
   // errorMessage stores friendly feedback if the request fails.
@@ -27,22 +28,36 @@ export default function ChatBox() {
       return;
     }
 
+    if (!documentText.trim()) {
+      setErrorMessage("Please upload a PDF before asking a question.");
+      setAiResponse("");
+      return;
+    }
+
     setIsLoading(true);
     setErrorMessage("");
     setAiResponse("");
 
     try {
-      // API request:
-      // This frontend component sends the question to a future backend route.
-      // The backend route will later call Gemini with the uploaded document text.
+      // API communication:
+      // This frontend component sends both pieces the backend needs:
+      // 1. the user's question
+      // 2. the extracted PDF text
+      // The backend route uses Gemini to answer from the document text.
       const response = await fetch("/api/ask", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ question: trimmedQuestion }),
+        body: JSON.stringify({
+          question: trimmedQuestion,
+          documentText,
+        }),
       });
 
+      // Async flow:
+      // response.json() is asynchronous because the browser needs to read the
+      // response body before JavaScript can use it.
       const data = await response.json();
 
       if (!response.ok) {
@@ -76,8 +91,8 @@ export default function ChatBox() {
           Ask a question
         </h2>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-          Ask about uploaded document content. The Gemini-powered backend can be
-          connected in the next step.
+          Ask about uploaded document content. The question and extracted PDF
+          text are sent to the Gemini backend API.
         </p>
       </header>
 
@@ -104,7 +119,9 @@ export default function ChatBox() {
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-slate-500">
-            Responses will be based on extracted document text.
+            {documentText
+              ? "Responses will be based on the uploaded PDF text."
+              : "Upload a PDF first so the assistant has document text."}
           </p>
 
           <button

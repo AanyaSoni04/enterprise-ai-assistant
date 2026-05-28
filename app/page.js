@@ -1,4 +1,4 @@
-import UploadBox from "@/components/UploadBox";
+import KnowledgeAssistantDashboard from "@/components/KnowledgeAssistantDashboard";
 
 export default function HomePage() {
   return (
@@ -28,11 +28,11 @@ export default function HomePage() {
           </p>
         </header>
 
-        {/* Upload section:
-            The UploadBox contains the drag-and-drop UI, PDF validation, loading
-            spinner, and file feedback. Keeping it in its own component makes it
-            reusable on future dashboard pages. */}
-        <UploadBox />
+        {/* Dashboard section:
+            The dashboard parent connects PDF upload state to the chat box.
+            UploadBox extracts text, then ChatBox sends that text with the user's
+            question to the Gemini backend API. */}
+        <KnowledgeAssistantDashboard />
       </div>
     </main>
   );

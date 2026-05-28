@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 
-export default function UploadBox() {
+export default function UploadBox({ onTextExtracted }) {
   // State management:
   // - selectedFile stores the PDF the user picked.
   // - extractedText stores the text returned by our backend upload API.
@@ -97,12 +97,20 @@ export default function UploadBox() {
       // uploadPdfToBackend returns a promise because HTTP requests take time.
       // await pauses this handler until the backend extracts text and responds.
       const data = await uploadPdfToBackend(file);
+      const nextExtractedText = data.text || "";
 
-      setExtractedText(data.text || "");
-      setSuccessMessage(`Upload complete. Extracted text from ${data.fileName}.`);
+      setExtractedText(nextExtractedText);
+      // State sharing:
+      // UploadBox owns the upload UI, but a parent component may need the text
+      // for ChatBox. This optional callback passes the extracted text upward.
+      onTextExtracted?.(nextExtractedText);
+      setSuccessMessage(
+        `Upload complete. Extracted text from ${data.fileName}.`,
+      );
     } catch (error) {
       setSelectedFile(null);
       setExtractedText("");
+      onTextExtracted?.("");
       setSuccessMessage("");
       setErrorMessage(error.message);
     } finally {
@@ -234,7 +242,9 @@ export default function UploadBox() {
 
         {extractedText && (
           <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3">
-            <p className="text-sm font-medium text-slate-700">Extracted text preview</p>
+            <p className="text-sm font-medium text-slate-700">
+              Extracted text preview
+            </p>
             <p className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap text-sm leading-6 text-slate-600">
               {extractedText.slice(0, 1200)}
               {extractedText.length > 1200 ? "..." : ""}
