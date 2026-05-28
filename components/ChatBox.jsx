@@ -44,7 +44,7 @@ export default function ChatBox({ documentText = "" }) {
       // 1. the user's question
       // 2. the extracted PDF text
       // The backend route uses Gemini to answer from the document text.
-      const response = await fetch("/api/ask", {
+      const response = await fetch("/api/chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

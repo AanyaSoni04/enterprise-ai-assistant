@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 
-export default function UploadBox({ onTextExtracted }) {
+export default function UploadBox({ setDocumentText }) {
   // State management:
   // - selectedFile stores the PDF the user picked.
   // - extractedText stores the text returned by our backend upload API.
@@ -77,6 +77,7 @@ export default function UploadBox({ onTextExtracted }) {
     if (validationError) {
       setSelectedFile(null);
       setExtractedText("");
+      setDocumentText?.("");
       setSuccessMessage("");
       setErrorMessage(validationError);
       setIsLoading(false);
@@ -103,14 +104,14 @@ export default function UploadBox({ onTextExtracted }) {
       // State sharing:
       // UploadBox owns the upload UI, but a parent component may need the text
       // for ChatBox. This optional callback passes the extracted text upward.
-      onTextExtracted?.(nextExtractedText);
+      setDocumentText?.(nextExtractedText);
       setSuccessMessage(
         `Upload complete. Extracted text from ${data.fileName}.`,
       );
     } catch (error) {
       setSelectedFile(null);
       setExtractedText("");
-      onTextExtracted?.("");
+      setDocumentText?.("");
       setSuccessMessage("");
       setErrorMessage(error.message);
     } finally {
